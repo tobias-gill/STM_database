@@ -5,7 +5,6 @@ import os
 import time
 import logging
 import logging.handlers
-
 import flatfile as ff
 
 
@@ -66,7 +65,7 @@ Logging
 # Ensures that the logger records that logs came from this script.
 bigblue_logger = logging.getLogger(__name__)
 # Sets the level of logging
-bigblue_logger.setLevel(logging.DEBUG)
+bigblue_logger.setLevel(logging.INFO)
 
 # Finds the bigblue log file location.
 bigblue_log_loc = os.path.join(os.path.getcwd(), 'bigblue_logFiles','bigblue.log')
@@ -89,9 +88,27 @@ BigBlue
 
 class BigBlue():
 
-    def __init__(self, user, password, stm_file, database='cryo_stm_data'):
+    def __init__(self, user, password, stm_file, database='cryo_stm_data', logging_level='INFO'):
         self.user = user  # SQL database Username.
         self.password = password  # SQL database password.
+
+        # Sets the level of logging to associate with instance of BigBlue() class. Default is INFO level.
+        self.logging_level = logging_level
+        if self.logging_level == 'CRITICAL' or self.logging_level == 'CRIT' or self.logging_level >= 50:
+            bigblue_logger.setLevel(logging.CRITICAL)
+        elif self.logging_level == 'ERROR' or self.logging_level >= 40:
+            bigblue_logger.setLevel(logging.ERROR)
+        elif self.logging_level == 'WARNING' or self.logging_level == 'WARN' or self.logging_level >= 30:
+            bigblue_logger.setLevel(logging.WARN)
+        elif self.logging_level == 'INFO' or self.logging_level >= 20:
+            bigblue_logger.setLevel(logging.INFO)
+        elif self.logging_level == 'DEBUG' or self.logging_level >= 10:
+            bigblue_logger.setLevel(logging.DEBUG)
+        else:
+            # If input is not known will add a single warning to log file and revert to INFO level.
+            bigblue_logger.setLevel(logging.WARN)
+            bigblue_logger.warn(self.sys_log_entry('Logging level not recognised. Reverting to default level: INFO'))
+            bigblue_logger.setLevel(logging.INFO)
 
         # SQL database host location. Should always remain localhost as users should shh into server.
         self.host = 'localhost'
@@ -131,6 +148,8 @@ class BigBlue():
     def user_log_entry(self, comment):
         return "[" + self.user + '] ' + comment
 
+    def sys_log_entry(self, comment):
+        return "[SYS]" + comment
 
     """
     Flat File manipulation
@@ -226,8 +245,7 @@ class BigBlue():
                                              'exp_prep': None,
                                              'exp_notebook': None,
                                              'exp_notes': None}
-                    raise CreationCommentError, \
-                        'Creation comment of %s does not match expected format' % self.stm_fileName
+                    raise CreationCommentError('Creation comment of %s does not match expected format' % self.stm_fileName)
 
     def ret_stmData(self, stm_file, scan_dir=0):
         """ Returns the experimental data from a specified ff[scan_dir] object."""
@@ -267,7 +285,7 @@ class BigBlue():
             self.lastEntryId = self.cursor.fetchall()
         except:
             self.db.rollback()
-            raise LastEntryIdError, 'Was unable to extract last entry id from %s' % self.database
+            raise LastEntryIdError('Was unable to extract last entry id from %s' % self.database)
         self.db.close()
 
     def add_entry(self):
@@ -333,8 +351,10 @@ class BigBlue():
             self.cursor.execute(self.query)
             # Fetch all the rows in a list of lists.
             self.results = self.cursor.fetchone()
-            if bigblue_logger.isEnabledFor(logging.INFO):
-                bigblue_logger.info(self.user_log_entry(self.query))
+            # Check to see if log needs to be generated.
+            if bigblue_logger.isEnabledFor(logging.DEBUG):
+                # If debug level is logged add the SQL query to log.
+                bigblue_logger.debug(self.user_log_entry(self.query))
         except:
             # If no results return False
             if bigblue_logger.isEnabledFor(logging.ERROR):
