@@ -352,28 +352,44 @@ class BigBlue():
             # Fetch all the rows in a list of lists.
             self.results = self.cursor.fetchone()
             # Check to see if log needs to be generated.
-            if bigblue_logger.isEnabledFor(logging.DEBUG):
-                # If debug level is logged add the SQL query to log.
+            if bigblue_logger.isEnabledFor(logging.INFO):
+                # Adds shortened details of query to logfile is logging level is set to INFO
+                bigblue_logger.info(self.user_log_entry('check_expMetaDataExist on file with timestamp: %s'
+                                                        % self.creation_timestamp))
+            elif bigblue_logger.isEnabledFor(logging.DEBUG):
+                # Adds the full query used to log file if logging level is set to DEBUG
                 bigblue_logger.debug(self.user_log_entry(self.query))
         except:
-            # If no results return False
+            # If no result log error and raise exception.
             if bigblue_logger.isEnabledFor(logging.ERROR):
                 bigblue_logger.error(self.user_log_entry('Unable to connect to database: %s' % self.database))
             raise DatabaseConnectionError('Unable to connect to database: %s' % self.database)
 
 
         if self.results == None:
+            # If no entry in database has equivalent timestamp, log and return False.
+            if bigblue_logger.isEnabledFor(logging.INFO):
+                bigblue_logger.info(self.user_log_entry('No file with timestamp: %s found in database: %s'
+                                                        % (self.creation_timestamp, self.database)))
             return False
         elif self.results[0] == self.creation_timestamp:
+            # If an entry already exists with equivalent timestamp, log and return True.
+            if bigblue_logger.isEnabledFor(logging.INFO):
+                bigblue_logger.info(self.user_log_entry('File with timestamp: %s found in database: %s'
+                                                        % (self.creation_timestamp, self.database)))
             return True
         elif self.results[0] != self.creation_timestamp:
-            if bigblue_logger.isEnabledFor(logging.WARN):
-                bigblue_logger.warn(self.user_log_entry('Returned file timestamp: %s does not equal queried \ '
-                                                        'timestamp: %s' % (self.results[0], self.creation_timestamp)))
+            # If result returns entry with different timestamp there may have been a mistake in the query generated.
+            if bigblue_logger.isEnabledFor(logging.ERROR):
+                bigblue_logger.error(self.user_log_entry('Returned file timestamp: %s does not equal queried '
+                                                         'timestamp: %s.\nCheck submitted query: %s'
+                                                         % (self.results[0], self.creation_timestamp, self.query)))
             return False
         else:
-            if bigblue_logger.isEnabledFor(logging.WARN):
-                bigblue_logger.warn(self.user_log_entry('LOGIC WARNING: check_expMetadataExist has returned result \
+            if bigblue_logger.isEnabledFor(logging.ERROR):
+                # If we get this far things have gone very wrong as returned entry neither matches or does not match
+                # the files creation timestamp.
+                bigblue_logger.error(self.user_log_entry('LOGIC WARNING: check_expMetadataExist has returned result \
                 that neither matches or does not match the timestamp of %s' % self.stm_fileName))
         self.db.close()
 
