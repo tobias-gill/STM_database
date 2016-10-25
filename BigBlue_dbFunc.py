@@ -245,7 +245,8 @@ class BigBlue():
                                              'exp_prep': None,
                                              'exp_notebook': None,
                                              'exp_notes': None}
-                    raise CreationCommentError('Creation comment of %s does not match expected format' % self.stm_fileName)
+                    raise CreationCommentError('Creation comment of %s does not match expected format'
+                                               % self.stm_fileName)
 
     def ret_stmData(self, stm_file, scan_dir=0):
         """ Returns the experimental data from a specified ff[scan_dir] object."""
@@ -294,35 +295,35 @@ class BigBlue():
         if self.stm_fileType == 'topo':
             self.safeAdd_exp_metadata()
             if DEBUG:
-                print 'safeAdd_exp_metadata complete'
+                print('safeAdd_exp_metadata complete')
             self.safeAdd_stm_files()
             if DEBUG:
-                print 'safeAdd_stm_files complete'
+                print('safeAdd_stm_files complete')
             self.safeAdd_stm_topo_metadata()
             if DEBUG:
-                print 'safeAdd_stm_topo_metadata complete'
+                print('safeAdd_stm_topo_metadata complete')
         elif self.stm_fileType == 'ivcurve':
             self.safeAdd_exp_metadata()
             if DEBUG:
-                print 'safeAdd_exp_metadata complete'
+                print('safeAdd_exp_metadata complete')
             self.safeAdd_stm_files()
             if DEBUG:
-                print 'safeAdd_stm_files complete'
+                print('safeAdd_stm_files complete')
             self.safeAdd_stm_spec_metadata()
             if DEBUG:
-                print 'safeAdd_stm_spec_metadata complete'
+                print('safeAdd_stm_spec_metadata complete')
         elif self.stm_fileType == 'ivmap':
             self.safeAdd_exp_metadata()
             if DEBUG:
-                print 'safeAdd_exp_metadata complete'
+                print('safeAdd_exp_metadata complete')
             self.safeAdd_stm_files()
             if DEBUG:
-                print 'safeAdd_stm_files complete'
+                print('safeAdd_stm_files complete')
             self.safeAdd_stm_cits_metadata()
             if DEBUG:
-                print 'safeAdd_stm_cits_metadata complete'
+                print('safeAdd_stm_cits_metadata complete')
         elif self.stm_fileType == 'izcurve':
-            'not yet complete' # FIXME: Need to fix flatfile, as currently does not read iz data.
+            print('not yet complete') # FIXME: Need to fix flatfile module, as currently does not read iz data.
         else:
             raise UnknownFlatFileFormat('%s contains an unknown data type' % self.stm_fileName)
 
@@ -354,9 +355,9 @@ class BigBlue():
             # Check to see if log needs to be generated.
             if bigblue_logger.isEnabledFor(logging.INFO):
                 # Adds shortened details of query to logfile is logging level is set to INFO
-                bigblue_logger.info(self.user_log_entry('check_expMetaDataExist on file with timestamp: %s'
-                                                        % self.creation_timestamp))
-            elif bigblue_logger.isEnabledFor(logging.DEBUG):
+                bigblue_logger.info(self.user_log_entry('check_expMetaDataExist on file: %s'
+                                                        % self.stm_fileName))
+            if bigblue_logger.isEnabledFor(logging.DEBUG):
                 # Adds the full query used to log file if logging level is set to DEBUG
                 bigblue_logger.debug(self.user_log_entry(self.query))
         except:
@@ -414,18 +415,20 @@ class BigBlue():
             # Commit insertion into database
             self.db.commit()
             if bigblue_logger.isEnabledFor(logging.INFO):
-                bigblue_logger.info(self.user_log_entry(self.query))
-            elif bigblue_logger.isEnabledFor(logging.DEBUG):
-                bigblue_logger.debug(self.user_log_entry('%s added to exp_metadata in %s' % (self.stm_fileName,
-                                                                                            self.database)))
-                bigblue_logger.info(self.user_log_entry(self.query))
+                # Log that a file has been added to the database.
+                bigblue_logger.info(self.user_log_entry('add_exp_metadata(). File: %s added to database: %s'
+                                                        % (self.stm_fileName, self.database)))
+            if bigblue_logger.isEnabledFor(logging.DEBUG):
+                # If DEBUG level logging is enabled log the entire query.
+                bigblue_logger.debug(self.user_log_entry(self.query))
 
         except:
             # If error in execute rolls back database
             self.db.rollback()
             if bigblue_logger.isEnabledFor(logging.ERROR):
-                bigblue_logger.error(self.user_log_entry('Unable to connect to database: %s' % self.database))
-            raise DatabaseEntryError, 'Unable to add %s into exp_metadata within %s' %(self.fileName, self.database)
+                bigblue_logger.error(self.user_log_entry('Unable to add %s into exp_metadata within %s'
+                                                         %(self.fileName, self.database)))
+            raise DatabaseEntryError('Unable to add %s into exp_metadata within %s' %(self.fileName, self.database))
         # Close database connection
         self.db.close()
 
@@ -539,8 +542,8 @@ class BigBlue():
             self.exp_metadata_id = self.cursor.fetchone()[0]
         except:
             # If no result found.
-            raise UnableToFindEntryError, 'Unable to find entry in exp_metadata that has same timestamp as %s' % \
-                                         (self.stm_fileName)
+            raise UnableToFindEntryError('Unable to find entry in exp_metadata that has same timestamp as %s'
+                                         % self.stm_fileName)
         # Close connection to database.
         self.db.close()
         # FIXME: It is probably redundant to close then reopen the connection. Look into this.
