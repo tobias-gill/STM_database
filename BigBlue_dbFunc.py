@@ -536,6 +536,9 @@ class  BigBlue():
         # If a unique results is found, check that it does in fact equal stm_fileName
         elif len(self.results) == 1:
             if self.results[0][0] == self.stm_fileName:
+                if bigblue_logger.isEnabledFor(logging.DEBUG):
+                    bigblue_logger.debug(self.user_log_entry('File: %s already exists in database: %s table: stm_files'
+                                                             % (self.stm_fileName, self.database)))
                 # entry returned from database is definitely equal to stm_fileName
                 return True
             elif self.results[0][0] != self.stm_fileName:
