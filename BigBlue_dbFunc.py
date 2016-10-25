@@ -69,7 +69,7 @@ bigblue_logger = logging.getLogger(__name__)
 bigblue_logger.setLevel(logging.DEBUG)
 
 # Finds the bigblue log file location.
-bigblue_log_loc = os.path.join(os.path.expanduser('~'),'Desktop', 'bigblue_logFiles', 'bigblue.log')
+bigblue_log_loc = os.path.join(os.path.getcwd(), 'bigblue_logFiles','bigblue.log')
 # Sets the log file name, mode 'a'=append, max log file size = 1MB, and then how many logs to rotate through.
 bigblue_log_handler = logging.handlers.RotatingFileHandler(filename=bigblue_log_loc, mode='a', maxBytes=10**6,
                                                            backupCount=5)
