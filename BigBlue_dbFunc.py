@@ -462,7 +462,10 @@ class  BigBlue():
                                                         'in database: %s.' % (self.creation_timestamp, self.database)))
 
     def delete_exp_metadata(self):
-        """ Can be used to delete an entry with the same timestamp as stm_file from exp_metadata in database"""
+        """
+        Can be used to delete an entry with the same timestamp as stm_file from exp_metadata in database
+        WARNING: This will propagate through entire database deleting all files associated with experiment.
+        """
 
         # Open connection with database.
         self.db = MySQLdb.connect(self.host, self.user, self.password, self.database)
@@ -475,13 +478,13 @@ class  BigBlue():
         try:
             self.cursor.execute(self.query)
             self.db.commit()
-            if bigblue_logger.isEnabledFor(logging.INFO):
-                # Log File Deletion general info
-                bigblue_logger.info(self.user_log_entry('File: %s DELETED from database: %s'
-                                                        % (self.stm_fileName, self.database)))
             if bigblue_logger.isEnabledFor(logging.WARN):
+                # Log File Deletion general info
+                bigblue_logger.warn(self.user_log_entry('All Files with exp_timestamp: %s DELETED from Database: %s'
+                                                        % (self.creation_timestamp, self.database)))
+            if bigblue_logger.isEnabledFor(logging.DEBUG):
                 # log warning that file has been deleted. Use full query for better tracking.
-                bigblue_logger.warn(self.user_log_entry(self.query))
+                bigblue_logger.debug(self.user_log_entry(self.query))
         except:
             self.db.rollback()
             if bigblue_logger.isEnabledFor(logging.ERROR):
@@ -607,9 +610,9 @@ class  BigBlue():
 
         # Create a consistent timestamp string from the file info.
         self.file_timestamp = time.strptime(self.fileInfos[0]['date'], "%Y-%m-%d %H:%M:%S")
-        self.stm_fileDate = '' # create an empty string object.
-        # If the the month, day, hour, minute, or second values are less than 10 then as a float they will be a single
-        # digit. For consistency in our generated string we want an 0 before numbers with a value less than 10.
+        self.stm_fileDate = '' # create an empty string object to hold the file date for inclusion in the database.
+        # If the the month, day, hour, minute, or second values are less than 10, then as a float they will be a single
+        # digit. For consistency in our generated string we want a 0 before numbers with a value less than 10.
         # i.e. Five should be 05, not 5 in the string.
         for i in range(0, 6):
             if self.file_timestamp[i] < 10:
@@ -682,12 +685,17 @@ class  BigBlue():
             self.cursor.execute(self.query)
             # Commit changes to database
             self.db.commit()
-            if DEBUG:
-                print ('Entry with file name: %s removed from stm_files in %s') % (self.stm_fileName, self.database)
+            if bigblue_logger.isEnabledFor(logging.WARN):
+                # Log File Deletion general info
+                bigblue_logger.warn(self.user_log_entry('File: %s DELETED from stm_files Database: %s'
+                                                        % (self.stm_fileName, self.database)))
+            if bigblue_logger.isEnabledFor(logging.DEBUG):
+                # log warning that file has been deleted. Use full query for better tracking.
+                bigblue_logger.debug(self.user_log_entry(self.query))
         except:
             self.db.rollback()
-            raise DatabaseDeleteError, 'Entry with file name: %s could not be deleted from stm_files in %s' % \
-                                       (self.stm_fileName, self.database)
+            raise DatabaseDeleteError('Entry with file name: %s could not be deleted from stm_files in %s'
+                                      % (self.stm_fileName, self.database))
         # Close database connection
         self.db.close()
 
