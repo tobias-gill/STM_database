@@ -603,7 +603,8 @@ class  BigBlue():
             # Close connection to database.
             self.db.close()
             sys.exit('No entry in exp_metadata with timestamp: %s. Unable to link file: %s with an exp_metadata_id'
-                     'in database: %s.' % (self.creation_timestamp, self.stm_fileName, self.database))
+                     'in database: %s. Killed session to preserve database.' % (self.creation_timestamp,
+                                                                                self.stm_fileName, self.database))
 
         # We now have the exp_metadata_id associated with our file.
         # It will now be possible to add our file to stm_files with all fields complete.
@@ -706,7 +707,7 @@ class  BigBlue():
     """
 
     def check_stmTopoMetadataExist(self):
-        """ Each stm_topo_metadata entry should link to a single stm_file entry ad single exp_metadata entry. It can
+        """ Each stm_topo_metadata entry should link to a single stm_file entry and a single exp_metadata entry. It can
          then be referenced by multiple stm_topo_data entries.
          First the file_id of the appropriate stm_files entry is found by looking for the file_name.
             If no file_id can be found raise an error.
@@ -721,21 +722,23 @@ class  BigBlue():
         # Prepare SQL query to return the file_id of all entries that have a fileName equal to the current flatfile
         self.query = "SELECT file_id FROM stm_files WHERE file_name = '%s'" % self.stm_fileName
 
-        if DEBUG:
-            print self.query
-
         try:
             # Execute SQL command
             self.cursor.execute(self.query)
             # Fetch all the rows in a list of lists.
             self.results = self.cursor.fetchall()
+            if bigblue_logger.isEnabledFor(logging.INFO):
+                bigblue_logger.info(self.user_log_entry('Searching for File: %s, file_id in Table: stm_files of '
+                                                        'Database: %s.' % (self.stm_fileName, self.database)))
+            if bigblue_logger.isEnabledFor(logging.DEBUG):
+                bigblue_logger.debug(self.user_log_entry(self.query))
+            self.db.close()
         except:
             # If fail close connection and end here.
+            if bigblue_logger.isEnabledFor(logging.ERROR):
+                bigblue_logger.error(self.user_log_entry('Could not connect to Database: %s' % self.database))
             self.db.close()
-            raise UnableToFindEntryError, 'Could not find %s in stm_files within %s.' % \
-                                          (self.stm_fileName, self.database)
-        # Close database connection
-        self.db.close()
+
 
         if len(self.results) > 1:
             raise DuplicateEntryError, 'Duplicate entry found in stm_files within %s with file name: %s' % \
@@ -944,24 +947,24 @@ class  BigBlue():
         except:
             # If fail close connection and end here.
             self.db.close()
-            raise UnableToFindEntryError, 'Could not find %s in stm_files within %s.' % \
-                                          (self.stm_fileName, self.database)
+            raise UnableToFindEntryError('Could not find %s in stm_files within %s.'
+                                         % (self.stm_fileName, self.database))
         # Close database connection
         self.db.close()
 
         if len(self.results) > 1:
-            raise DuplicateEntryError, 'Duplicate entry found in stm_files within %s with file name: %s' % \
-                                       (self.database, self.stm_fileName)
+            raise DuplicateEntryError('Duplicate entry found in stm_files within %s with file name: %s'
+                                      % (self.database, self.stm_fileName))
         elif len(self.results) == 1:
             if self.results[0] == None:
-                raise UnableToFindEntryError, 'Was unable to find %s in stm_files within %d' % \
-                                              (self.stm_fileName, self.database)
+                raise UnableToFindEntryError('Was unable to find %s in stm_files within %d'
+                                             % (self.stm_fileName, self.database))
             else:
                 self.stm_file_id = self.results[0][0]
 
         else:
-            raise UnableToFindEntryError, 'Could not find %s in stm_files within %s.' % \
-                                          (self.stm_fileName, self.database)
+            raise UnableToFindEntryError('Could not find %s in stm_files within %s.'
+                                         % (self.stm_fileName, self.database))
 
         # Connect to database
         self.db = MySQLdb.connect(self.host, self.user, self.password, self.database)
