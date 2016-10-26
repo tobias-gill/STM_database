@@ -2,6 +2,7 @@ __author__ = 'Tobias Gill'
 
 import MySQLdb
 import os
+import sys
 import time
 import logging
 import logging.handlers
@@ -428,17 +429,20 @@ class  BigBlue():
             if bigblue_logger.isEnabledFor(logging.DEBUG):
                 # If DEBUG level logging is enabled log the entire query.
                 bigblue_logger.debug(self.user_log_entry(self.query))
+            # Close database connection
+            self.db.close()
 
         except:
             # If error in execute rolls back database
             self.db.rollback()
             if bigblue_logger.isEnabledFor(logging.ERROR):
-                bigblue_logger.error(self.user_log_entry('Unable to add %s into exp_metadata within %s. '
-                                                         'Database rolled back.'% (self.stm_fileName, self.database)))
-            raise DatabaseEntryError('Unable to add %s into exp_metadata within %s'
-                                     % (self.stm_fileName, self.database))
-        # Close database connection
-        self.db.close()
+                bigblue_logger.error(self.user_log_entry('Unable to add File: %s into Table: exp_metadata within '
+                                                         'Database: %s. Database rolled back.' % (self.stm_fileName,
+                                                                                                  self.database)))
+            # Close connection to database before exit.
+            self.db.close()
+            sys.exit('Unable to add File: %s into Table: exp_metadata within Database: %s. Database rolled back.'
+                     % (self.stm_fileName, self.database))
 
     def safeAdd_exp_metadata(self):
         """ This function uses check_expMetaDataExist to see if an entry already exists with the same timestamp
@@ -577,55 +581,75 @@ class  BigBlue():
         self.cursor = self.db.cursor()
         # Prepare SQL command, to retrieve exp_metadata_id
         self.query = "SELECT exp_metadata_id FROM exp_metadata WHERE exp_timestamp = '%s'" % self.creation_timestamp
-        if DEBUG:
-            print self.query
 
         try:
             # Execute SQL command.
             self.cursor.execute(self.query)
             # Fetch the exp_metadata_id.
             self.exp_metadata_id = self.cursor.fetchone()[0]
+            if bigblue_logger.isEnabledFor(logging.DEBUG):
+                bigblue_logger.debug(self.user_log_entry(self.query))
+            # Close connection to database.
+            self.db.close()
         except:
             # If no result found.
-            raise UnableToFindEntryError('Unable to find entry in exp_metadata that has same timestamp as %s'
-                                         % self.stm_fileName)
-        # Close connection to database.
-        self.db.close()
-        # FIXME: It is probably redundant to close then reopen the connection. Look into this.
-        # Open database connection
-        self.db  = MySQLdb.connect(self.host, self.user, self.password, self.database)
-        # Prepare a cursor object using cursor() method
-        self.cursor = self.db.cursor()
+            if bigblue_logger.isEnabledFor(logging.ERROR):
+                bigblue_logger.error(self.user_log_entry('No entry in exp_metadata with timestamp: %s. Unable to link'
+                                                         'file: %s with an exp_metadata_id in database: %s.'
+                                                         %(self.creation_timestamp, self.stm_fileName, self.database)))
+            # Close connection to database.
+            self.db.close()
+            sys.exit('No entry in exp_metadata with timestamp: %s. Unable to link file: %s with an exp_metadata_id'
+                     'in database: %s.' % (self.creation_timestamp, self.stm_fileName, self.database))
 
+        # We now have the exp_metadata_id associated with our file.
+        # It will now be possible to add our file to stm_files with all fields complete.
+
+        # Create a consistent timestamp string from the file info.
         self.file_timestamp = time.strptime(self.fileInfos[0]['date'], "%Y-%m-%d %H:%M:%S")
-        self.stm_fileDate = ''
+        self.stm_fileDate = '' # create an empty string object.
+        # If the the month, day, hour, minute, or second values are less than 10 then as a float they will be a single
+        # digit. For consistency in our generated string we want an 0 before numbers with a value less than 10.
+        # i.e. Five should be 05, not 5 in the string.
         for i in range(0, 6):
             if self.file_timestamp[i] < 10:
                 self.stm_fileDate = self.stm_fileDate + '0' + str(self.file_timestamp[i])
             else:
                 self.stm_fileDate = self.stm_fileDate + str(self.file_timestamp[i])
 
+        # Open database connection
+        self.db  = MySQLdb.connect(self.host, self.user, self.password, self.database)
+        # Prepare a cursor object using cursor() method
+        self.cursor = self.db.cursor()
         # Prepare SQL query to insert stm_file into database
+        # the .replace() function is to avoid an exclusion 'error' for double backslashes in MySQL.
         self.query = "INSERT INTO stm_files(exp_metadata_id, file_name, file_date, file_type, file_location)" \
                      "VALUES ('%d', '%s', '%s', '%s', '%s')" % \
                      (int(float(self.exp_metadata_id)), self.stm_fileName, self.stm_fileDate, self.stm_fileType,
                       str(self.stm_filePath.replace('\\', '/')))
-                      # the .replace() function is to avoid an exlcusion 'error' for double backslashes in MySQL.
 
         try:
             # Execute SQL command
             self.cursor.execute(self.query)
             # Commit insertion into database
             self.db.commit()
-            if DEBUG:
-                # Prints confirmation of insertion
-                print('%s added to stm_files in %s' % (self.stm_fileName, self.database))
+            if bigblue_logger.isEnabledFor(logging.INFO):
+                bigblue_logger.info(self.user_log_entry('File: %s added into Table: stm_files within Database: %s'
+                                                        % (self.stm_fileName, self.database)))
+            if bigblue_logger.isEnabledFor(logging.DEBUG):
+                bigblue_logger.debug(self.user_log_entry(self.query))
+            self.db.close()
         except:
             # If error in execute rolls back database
             self.db.rollback()
-            raise DatabaseEntryError, 'Unable to add %s into stm_files within %s' %(self.stm_fileName, self.database)
-        # Close database connection
-        self.db.close()
+            if bigblue_logger.isEnabledFor(logging.ERROR):
+                bigblue_logger.error(self.user_log_entry('Unable to add File: %s into Table: stm_files within Database:'
+                                                         ' %s. Database rolled back.' % (self.stm_fileName,
+                                                                                         self.database)))
+            # Close connection to database before exit.
+            self.db.close()
+            sys.exit('Unable to add File: %s into Table: exp_metadata within Database: %s. Database rolled back.'
+                     % (self.stm_fileName, self.database))
 
     def safeAdd_stm_files(self):
         """ This function uses check_stmFilesExist to see if an entry already exists with the same fileName
@@ -639,6 +663,8 @@ class  BigBlue():
         elif self.check_stmFilesExist() == 'INCONCLUSIVE':
             print('Could not determine if file: %s is already in database: %s. File: %s not added. Check log file for '
                   'more details.' % (self.stm_fileName, self.database))
+            sys.exit('Could not determine if file: %s is already in database: %s. File: %s not added. Check log file '
+                     'for more details.' % (self.stm_fileName, self.database))
 
     def delete_stm_files(self):
         """ Can be used to delete an entry with the same stm_fileName as stm_file from stm_files in database"""
