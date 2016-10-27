@@ -179,6 +179,20 @@ class  BigBlue():
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug(self.user_log_entry(self.query_str))
 
+    def duplicate_err(self, table):
+        """
+        Function Type: Logging/Error Handling
+        Function Use: Use when database query finds duplicate entries.
+        Function Outcome: Logs duplicate error to log file and raises and error.
+        """
+        self.table = table
+        if self.logger.isEnabledFor(logging.ERROR):
+                self.logger.error(self.user_log_entry('Database Error [DUPLICATE]: Within Database: %s, found multiple '
+                                                      'rows in Table: %s, with creation_timestamp: %s'
+                                                      % (self.database, self.table, self.creation_timestamp)))
+        raise DuplicateEntryError('Database Error [DUPLICATE]: Within Database: %s, found multiple rows in Table: %s, '
+                                  'with creation_timestamp: %s' % (self.database, self.table, self.creation_timestamp))
+
     """
     Flat File manipulation
     """
@@ -198,11 +212,13 @@ class  BigBlue():
     def get_dataType(self, stm_file, scan=0):
         """ uses the info funtion from ff to extract the file type of stm_file. By default it uses the first scan as
         this will be in all files."""
-        self.stm_fileType = stm_file[scan].info['type']
+        self.scan = scan
+        self.stm_fileType = stm_file[self.scan].info['type']
 
     def ret_fileInfo(self, stm_file, scan_dir=0):
         """ Simple function to return the info dictionary extracted by ff.info"""
-        return stm_file[scan_dir].info
+        self.scan_dir = scan_dir
+        return stm_file[self.scan_dir].info
 
     def get_fileInfos(self, stm_file):
         """ Extracts the ff.info dictionaries from each scan and produces a list of them"""
@@ -379,11 +395,11 @@ class  BigBlue():
             # Execute SQL command
             self.cursor.execute(self.query)
             # Fetch all the rows in a list of lists.
-            self.results = self.cursor.fetchone()
+            self.results = self.cursor.fetchall()
             # Check to see if log needs to be generated.
-            if bigblue_logger.isEnabledFor(logging.INFO):
+            if self.logger.isEnabledFor(logging.INFO):
                 # Adds shortened details of query to logfile is logging level is set to INFO
-                bigblue_logger.info(self.user_log_entry('check_expMetaDataExist on file: %s'
+                self.logger.info(self.user_log_entry('check_expMetaDataExist on file: %s'
                                                         % self.stm_fileName))
             # If DEBUG level of logging is enabled logs the full query used.
             self.log_query(self.query)
@@ -397,23 +413,26 @@ class  BigBlue():
             self.cursor.close()
             self.db.close()
 
+        # First check to see if there is a unique result.
+        if self.results > 1:
+            self.duplicate_err('exp_metadata')
 
-        if self.results == None:
+        elif self.results == None:
             # If no entry in database has equivalent timestamp, log and return False.
-            if bigblue_logger.isEnabledFor(logging.INFO):
-                bigblue_logger.info(self.user_log_entry('No file with timestamp: %s found in database: %s'
+            if self.logger.isEnabledFor(logging.INFO):
+                self.logger.info(self.user_log_entry('No file with timestamp: %s found in database: %s'
                                                         % (self.creation_timestamp, self.database)))
             return False
         elif self.results[0] == self.creation_timestamp:
             # If an entry already exists with equivalent timestamp, log and return True.
-            if bigblue_logger.isEnabledFor(logging.INFO):
-                bigblue_logger.info(self.user_log_entry('File with timestamp: %s found in database: %s'
+            if self.logger.isEnabledFor(logging.INFO):
+                self.logger.info(self.user_log_entry('File with timestamp: %s found in database: %s'
                                                         % (self.creation_timestamp, self.database)))
             return True
         elif self.results[0] != self.creation_timestamp:
             # If result returns entry with different timestamp there may have been a mistake in the query generated.
-            if bigblue_logger.isEnabledFor(logging.ERROR):
-                bigblue_logger.error(self.user_log_entry('Returned file timestamp: %s does not equal queried '
+            if self.logger.isEnabledFor(logging.ERROR):
+                self.logger.error(self.user_log_entry('Returned file timestamp: %s does not equal queried '
                                                          'timestamp: %s.\nCheck submitted query: %s'
                                                          % (self.results[0], self.creation_timestamp, self.query)))
             return False
