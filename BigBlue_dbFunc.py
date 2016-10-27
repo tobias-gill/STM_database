@@ -6,85 +6,13 @@ import sys
 import time
 import logging
 import logging.handlers
-import flatfile as ff
 
+import flatfile as ff
+import BigBlue_logging
+import BigBlue_errors
 
 """ Use to output useful information when debugging scripts """
 DEBUG = False
-
-"""
-Error Classes
-"""
-
-class Error(Exception):
-    """Default Error Class for BigBlue_bdFunc"""
-    pass
-
-class UnknownFlatFileFormat(Error):
-    """File contains unknown data format"""
-    pass
-
-class DatabaseConnectionError(Error):
-    """Cannot connect to database"""
-
-class CreationCommentError(Error):
-    """STM Flat file creation comment is in unknown format"""
-    pass
-
-class LastEntryIdError(Error):
-    """Unable to find last entry id. database rollback."""
-    pass
-
-class UnableToFindEntryError(Error):
-    """Unable to find entry in database"""
-    pass
-
-class DatabaseEntryError(Error):
-    """Unable to add entry to database"""
-    pass
-
-class DatabaseDeleteError(Error):
-    """Unable to delete entry from database"""
-    pass
-
-class LogicError(Error):
-    """Unexpected error in logic"""
-    pass
-
-class DuplicateEntryError(Error):
-    """Found duplicate entries"""
-    pass
-
-class ExistingEntryError(Error):
-    """Entry already exists"""
-    pass
-
-class MySQL_Error(Error):
-    pass
-
-"""
-Logging
-"""
-
-# Ensures that the logger records that logs came from this script.
-bigblue_logger = logging.getLogger(__name__)
-# Sets the level of logging
-bigblue_logger.setLevel(logging.INFO)
-
-# Finds the bigblue log file location.
-bigblue_log_loc = os.path.join(os.path.getcwd(), 'bigblue_logFiles','bigblue.log')
-# Sets the log file name, mode 'a'=append, max log file size = 1MB, and then how many logs to rotate through.
-bigblue_log_handler = logging.handlers.RotatingFileHandler(filename=bigblue_log_loc, mode='a', maxBytes=10**6,
-                                                           backupCount=5)
-# Format for log entries.
-formatter = logging.Formatter('%(asctime)s: %(name)s - [%(levelname)s] %(message)s')
-# Sets the format.
-bigblue_log_handler.setFormatter(formatter)
-
-# Adds the handlers to the logger.
-bigblue_logger.addHandler(bigblue_log_handler)
-# Prevents the log from also appearing in the command line / in a Jupyter notebook.
-bigblue_logger.propagate = False
 
 """
 BigBlue
@@ -92,15 +20,12 @@ BigBlue
 
 class  BigBlue():
 
-    def __init__(self, user, password, stm_file, database='cryo_stm_data', logger=bigblue_logger,
-                 log_loc=bigblue_log_loc, logging_level='INFO'):
+    def __init__(self, user, password, stm_file, database='cryo_stm_data'):
         self.user = user  # SQL database Username.
         self.password = password  # SQL database password.
 
         # Initialise logging parameters
-        self.logger = logger  # Set logger for class instance.
-        self.log_loc = log_loc  # Sets log file location.
-        self.log_init(logging_level)
+        self.bigblue_log = BigBlue_logging.BigBlue_logging(self.user)
 
         # SQL database host location. Should always remain localhost as users should shh into server.
         self.host = 'localhost'
@@ -135,65 +60,6 @@ class  BigBlue():
         self.get_stmData(self.stm_file)
 
     """
-    Logging Funcs
-    """
-    def log_init(self, logging_level):
-        # Sets the level of logging to associate with instance of BigBlue() class. Default is INFO level.
-        self.logging_level = logging_level
-        if self.logging_level == 'CRITICAL' or self.logging_level == 'CRIT' or self.logging_level >= 50:
-            self.logger.setLevel(logging.CRITICAL)
-        elif self.logging_level == 'ERROR' or self.logging_level >= 40:
-            self.logger.setLevel(logging.ERROR)
-        elif self.logging_level == 'WARNING' or self.logging_level == 'WARN' or self.logging_level >= 30:
-            self.logger.setLevel(logging.WARN)
-        elif self.logging_level == 'INFO' or self.logging_level >= 20:
-            self.logger.setLevel(logging.INFO)
-        elif self.logging_level == 'DEBUG' or self.logging_level >= 10:
-            self.logger.setLevel(logging.DEBUG)
-        else:
-            # If input is not known will add a single warning to log file and revert to INFO level.
-            self.logger.setLevel(logging.INFO)
-            self.logger.warn(self.sys_log_entry('Logging level not recognised. Reverting to default level: INFO'))
-
-    def user_log_entry(self, comment):
-        return "[" + self.user + '] ' + comment
-
-    def sys_log_entry(self, comment):
-        return "[SYS]" + comment
-
-    def mysql_err(self, err):
-
-        self.err = err
-        try:
-            if self.logger.isEnabledFor(logging.ERROR):
-                self.logger.error('MySQL Error [%d]: %s' % (self.err.args[0], self.err.args[1]))
-        except IndexError:
-            if self.logger.isEnabledFor(logging.ERROR):
-                self.logger.error('MySQL Error: %s' % str(self.err))
-        finally:
-            raise MySQL_Error('MySQL Error. See logfile: %s.' % self.log_loc)
-
-    def log_query(self, query):
-
-        self.query_str = query
-        if self.logger.isEnabledFor(logging.DEBUG):
-            self.logger.debug(self.user_log_entry(self.query_str))
-
-    def duplicate_err(self, table):
-        """
-        Function Type: Logging/Error Handling
-        Function Use: Use when database query finds duplicate entries.
-        Function Outcome: Logs duplicate error to log file and raises and error.
-        """
-        self.table = table
-        if self.logger.isEnabledFor(logging.ERROR):
-                self.logger.error(self.user_log_entry('Database Error [DUPLICATE]: Within Database: %s, found multiple '
-                                                      'rows in Table: %s, with creation_timestamp: %s'
-                                                      % (self.database, self.table, self.creation_timestamp)))
-        raise DuplicateEntryError('Database Error [DUPLICATE]: Within Database: %s, found multiple rows in Table: %s, '
-                                  'with creation_timestamp: %s' % (self.database, self.table, self.creation_timestamp))
-
-    """
     Flat File manipulation
     """
     def get_stmFile(self, stm_file):
@@ -210,7 +76,7 @@ class  BigBlue():
         self.numberOfScans = len(stm_file)
 
     def get_dataType(self, stm_file, scan=0):
-        """ uses the info funtion from ff to extract the file type of stm_file. By default it uses the first scan as
+        """ uses the info function from ff to extract the file type of stm_file. By default it uses the first scan as
         this will be in all files."""
         self.scan = scan
         self.stm_fileType = stm_file[self.scan].info['type']
@@ -397,16 +263,14 @@ class  BigBlue():
             # Fetch all the rows in a list of lists.
             self.results = self.cursor.fetchall()
             # Check to see if log needs to be generated.
-            if self.logger.isEnabledFor(logging.INFO):
-                # Adds shortened details of query to logfile is logging level is set to INFO
-                self.logger.info(self.user_log_entry('check_expMetaDataExist on file: %s'
-                                                        % self.stm_fileName))
+            self.bigblue_log.log_checkfileexist(database=self.database, table='exp_metadata',
+                                                timestamp=self.creation_timestamp, filename=self.stm_fileName)
             # If DEBUG level of logging is enabled logs the full query used.
-            self.log_query(self.query)
+            self.bigblue_log.log_query(self.query)
 
         except MySQLdb.Error as self.err:
             # Catches errors coming from MySQL database. Logs and raises an exception.
-            self.mysql_err(self.err)
+            BigBlue_errors.mysql_err(self.err)
 
         finally:
             # Close connections to database.
@@ -415,20 +279,22 @@ class  BigBlue():
 
         # First check to see if there is a unique result.
         if self.results > 1:
-            self.duplicate_err('exp_metadata')
+            self.bigblue_log.log_duplicate_err(database=self.database, table='exp_metadata',
+                                               timestamp=self.creation_timestamp)
 
-        elif self.results == None:
+        elif self.results == ():
             # If no entry in database has equivalent timestamp, log and return False.
-            if self.logger.isEnabledFor(logging.INFO):
-                self.logger.info(self.user_log_entry('No file with timestamp: %s found in database: %s'
-                                                        % (self.creation_timestamp, self.database)))
+            self.bigblue_log.noexistingfile(database=self.database, table='exp_metadata',
+                                            timestamp=self.creation_timestamp, filename=self.stm_fileName)
             return False
-        elif self.results[0] == self.creation_timestamp:
+
+        elif self.results[0][0] == self.creation_timestamp:
             # If an entry already exists with equivalent timestamp, log and return True.
             if self.logger.isEnabledFor(logging.INFO):
                 self.logger.info(self.user_log_entry('File with timestamp: %s found in database: %s'
                                                         % (self.creation_timestamp, self.database)))
             return True
+
         elif self.results[0] != self.creation_timestamp:
             # If result returns entry with different timestamp there may have been a mistake in the query generated.
             if self.logger.isEnabledFor(logging.ERROR):
@@ -436,6 +302,7 @@ class  BigBlue():
                                                          'timestamp: %s.\nCheck submitted query: %s'
                                                          % (self.results[0], self.creation_timestamp, self.query)))
             return False
+
         else:
             if bigblue_logger.isEnabledFor(logging.ERROR):
                 # If we get this far things have gone very wrong as returned entry neither matches or does not match
