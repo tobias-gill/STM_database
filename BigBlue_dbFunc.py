@@ -59,6 +59,9 @@ class ExistingEntryError(Error):
     """Entry already exists"""
     pass
 
+class MySQL_Error(Error):
+    pass
+
 """
 Logging
 """
@@ -89,11 +92,14 @@ BigBlue
 
 class  BigBlue():
 
-    def __init__(self, user, password, stm_file, database='cryo_stm_data', logging_level='INFO'):
+    def __init__(self, user, password, stm_file, database='cryo_stm_data', logger=bigblue_logger,
+                 log_loc=bigblue_log_loc, logging_level='INFO'):
         self.user = user  # SQL database Username.
         self.password = password  # SQL database password.
 
         # Initialise logging parameters
+        self.logger = logger  # Set logger for class instance.
+        self.log_loc = log_loc  # Sets log file location.
         self.log_init(logging_level)
 
         # SQL database host location. Should always remain localhost as users should shh into server.
@@ -135,26 +141,43 @@ class  BigBlue():
         # Sets the level of logging to associate with instance of BigBlue() class. Default is INFO level.
         self.logging_level = logging_level
         if self.logging_level == 'CRITICAL' or self.logging_level == 'CRIT' or self.logging_level >= 50:
-            bigblue_logger.setLevel(logging.CRITICAL)
+            self.logger.setLevel(logging.CRITICAL)
         elif self.logging_level == 'ERROR' or self.logging_level >= 40:
-            bigblue_logger.setLevel(logging.ERROR)
+            self.logger.setLevel(logging.ERROR)
         elif self.logging_level == 'WARNING' or self.logging_level == 'WARN' or self.logging_level >= 30:
-            bigblue_logger.setLevel(logging.WARN)
+            self.logger.setLevel(logging.WARN)
         elif self.logging_level == 'INFO' or self.logging_level >= 20:
-            bigblue_logger.setLevel(logging.INFO)
+            self.logger.setLevel(logging.INFO)
         elif self.logging_level == 'DEBUG' or self.logging_level >= 10:
-            bigblue_logger.setLevel(logging.DEBUG)
+            self.logger.setLevel(logging.DEBUG)
         else:
             # If input is not known will add a single warning to log file and revert to INFO level.
-            bigblue_logger.setLevel(logging.WARN)
-            bigblue_logger.warn(self.sys_log_entry('Logging level not recognised. Reverting to default level: INFO'))
-            bigblue_logger.setLevel(logging.INFO)
+            self.logger.setLevel(logging.INFO)
+            self.logger.warn(self.sys_log_entry('Logging level not recognised. Reverting to default level: INFO'))
 
     def user_log_entry(self, comment):
         return "[" + self.user + '] ' + comment
 
     def sys_log_entry(self, comment):
         return "[SYS]" + comment
+
+    def mysql_err(self, err):
+
+        self.err = err
+        try:
+            if self.logger.isEnabledFor(logging.ERROR):
+                self.logger.error('MySQL Error [%d]: %s' % (self.err.args[0], self.err.args[1]))
+        except IndexError:
+            if self.logger.isEnabledFor(logging.ERROR):
+                self.logger.error('MySQL Error: %s' % str(self.err))
+        finally:
+            raise MySQL_Error('MySQL Error. See logfile: %s.' % self.log_loc)
+
+    def log_query(self, query):
+
+        self.query_str = query
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug(self.user_log_entry(self.query_str))
 
     """
     Flat File manipulation
@@ -362,17 +385,17 @@ class  BigBlue():
                 # Adds shortened details of query to logfile is logging level is set to INFO
                 bigblue_logger.info(self.user_log_entry('check_expMetaDataExist on file: %s'
                                                         % self.stm_fileName))
-            if bigblue_logger.isEnabledFor(logging.DEBUG):
-                # Adds the full query used to log file if logging level is set to DEBUG
-                bigblue_logger.debug(self.user_log_entry(self.query))
-        except:
-            # If no result log error and raise exception.
-            if bigblue_logger.isEnabledFor(logging.ERROR):
-                bigblue_logger.error(self.user_log_entry('Unable to connect to database: %s' % self.database))
-            raise DatabaseConnectionError('Unable to connect to database: %s' % self.database)
+            # If DEBUG level of logging is enabled logs the full query used.
+            self.log_query(self.query)
 
-        # Close connection to database.
-        self.db.close()
+        except MySQLdb.Error as self.err:
+            # Catches errors coming from MySQL database. Logs and raises an exception.
+            self.mysql_err(self.err)
+
+        finally:
+            # Close connections to database.
+            self.cursor.close()
+            self.db.close()
 
 
         if self.results == None:
@@ -534,10 +557,10 @@ class  BigBlue():
         # Test to see if there is a unique result
         if len(self.results) > 1:
             if bigblue_logger.isEnabledFor(logging.WARN):
-                bigblue_logger.warn(self.user_log_entry('[DUPLICATE] Found duplicate entry in database: %s. table: '
-                                                        'stm_files of file: %s' % (self.database, self.stm_fileName)))
+                bigblue_logger.warn(self.user_log_entry('[DUPLICATE] Found duplicate entry of file: %s in Database: %s,'
+                                                        ' Table: stm_files.' % (self.database, self.stm_fileName)))
             if bigblue_logger.isEnabledFor(logging.DEBUG):
-                bigblue_logger.debug(self.user_log_entry('[DUPLICATE INFO] %s' % self.query))
+                bigblue_logger.debug(self.user_log_entry(self.query))
             raise DuplicateEntryError('Found a duplicate entry of %s in stm_files within %s'
                                       % (self.stm_fileName, self.database))
         # If a unique results is found, check that it does in fact equal stm_fileName
