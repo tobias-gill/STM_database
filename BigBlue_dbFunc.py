@@ -18,7 +18,7 @@ DEBUG = False
 BigBlue
 """
 
-class  BigBlue():
+class BigBlue():
 
     def __init__(self, user, password, stm_file, database='cryo_stm_data'):
         self.user = user  # SQL database Username.
@@ -270,7 +270,7 @@ class  BigBlue():
 
         except MySQLdb.Error as self.err:
             # Catches errors coming from MySQL database. Logs and raises an exception.
-            BigBlue_errors.mysql_err(self.err)
+            self.bigblue_log.mysql_err(self.err)
 
         finally:
             # Close connections to database.
@@ -284,19 +284,20 @@ class  BigBlue():
 
         elif self.results == ():
             # If no entry in database has equivalent timestamp, log and return False.
-            self.bigblue_log.noexistingfile(database=self.database, table='exp_metadata',
-                                            timestamp=self.creation_timestamp, filename=self.stm_fileName)
+            self.bigblue_log.log_noexistingfile(database=self.database, table='exp_metadata',
+                                                timestamp=self.creation_timestamp, filename=self.stm_fileName)
             return False
 
         elif self.results[0][0] == self.creation_timestamp:
             # If an entry already exists with equivalent timestamp, log and return True.
-            if self.logger.isEnabledFor(logging.INFO):
-                self.logger.info(self.user_log_entry('File with timestamp: %s found in database: %s'
-                                                        % (self.creation_timestamp, self.database)))
+            self.bigblue_log.log_existingfile(database=self.database, table='exp_metadata',
+                                              timestamp=self.creation_timestamp, filename=self.stm_fileName)
             return True
 
         elif self.results[0] != self.creation_timestamp:
             # If result returns entry with different timestamp there may have been a mistake in the query generated.
+            self.bigblue_log.log_returnerror(database=self.database, table='exp_metadata',
+                                             timestamp=self.creation_timestamp, result=self.results[0])
             if self.logger.isEnabledFor(logging.ERROR):
                 self.logger.error(self.user_log_entry('Returned file timestamp: %s does not equal queried '
                                                          'timestamp: %s.\nCheck submitted query: %s'

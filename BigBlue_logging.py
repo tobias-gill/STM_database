@@ -132,3 +132,40 @@ class BigBlue_logging():
                 self.logger.info(self.user_log_entry('No File: %s  with creation_timestamp: %s found in Database: %s, '
                                                      'Table: %s.' % (self.filename, self.creation_timestamp,
                                                                      self.database, self.table)))
+    def log_existingfile(self, database, table, timestamp, filename):
+        """
+
+        :param database: string containing the name of the database in use.
+        :param table: string containing the name of the table searched within database.
+        :param timestamp: string containing the timestamp of the file being searched for.
+        :param filename: string containing the name of the file being searched for.
+        :return: None.
+        """
+        self.database = database
+        self.table = table
+        self.timestamp = timestamp
+        self.filename = filename
+
+        if self.logger.isEnabledFor(logging.INFO):
+            self.logger.info(self.user_log_entry('Existing entry found for File: %s with creation_timestamp: %s in '
+                                                 'Database: %s, Table: %s.' % (self.filename, self.timestamp,
+                                                                               self.database, self.table)))
+
+    def log_returnerror(self, database, table, timestamp, result):
+        """
+
+        :param database: string containing the name of the database in use.
+        :param table: string containing the name of the table searched within database.
+        :param timestamp: string containing the timestamp of the file being searched for.
+        :param result: string containing the erroneous search result.
+        :return: None.
+        """
+        self.database = database
+        self.table = table
+        self.timestamp = timestamp
+        self.result = result
+
+        if self.logger.isEnabledFor(logging.ERROR):
+            self.logger.error(self.user_log_entry('[RETURN ERROR] Returned result from Database: %s, Table: %s has '
+                                                  'timestamp: %s that does not equal the searched timestamp: %s.'
+                                                  % (self.result, self.timestamp)))
