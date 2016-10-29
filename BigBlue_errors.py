@@ -10,6 +10,7 @@ class UnknownFlatFileFormat(Error):
 
 class DatabaseConnectionError(Error):
     """Cannot connect to database"""
+    pass
 
 class CreationCommentError(Error):
     """STM Flat file creation comment is in unknown format"""
@@ -30,6 +31,9 @@ class DatabaseEntryError(Error):
 class DatabaseDeleteError(Error):
     """Unable to delete entry from database"""
     pass
+
+class Database_Result_Error(Error):
+    """ Use if a database result is erroneous."""
 
 class LogicError(Error):
     """Unexpected error in logic"""

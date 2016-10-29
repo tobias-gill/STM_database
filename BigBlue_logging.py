@@ -66,7 +66,7 @@ class BigBlue_logging():
     def sys_log_entry(self, comment):
         return "[SYS]" + comment
 
-    def mysql_err(self, err):
+    def log_mysql_err(self, err):
 
         self.err = err
         try:
@@ -169,3 +169,22 @@ class BigBlue_logging():
             self.logger.error(self.user_log_entry('[RETURN ERROR] Returned result from Database: %s, Table: %s has '
                                                   'timestamp: %s that does not equal the searched timestamp: %s.'
                                                   % (self.result, self.timestamp)))
+
+    def log_logicerror(self, database, table, timestamp, result):
+        """
+
+        :param database: string containing te name of the database in use.
+        :param table: string containing the name of the table searched within database.
+        :param timestamp: string containing the timestamp of the file being searched for.
+        :param result: string containing the timestamp of the returned result.
+        :return: None.
+        """
+        self.database = database
+        self.table = table
+        self.timestamp = timestamp
+        self.result = result
+
+        if self.logger.isEnabledFor(logging.ERROR):
+            self.logger.error(self.user_log_entry('[LOGIC ERROR] Returned result from Database: %s, Table: %s has '
+                                                  'timestamp: %s that does and does not equal searched result: %s.'
+                                                  % (self.database, self.table, self.result, self.timestamp)))

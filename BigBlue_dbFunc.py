@@ -270,7 +270,7 @@ class BigBlue():
 
         except MySQLdb.Error as self.err:
             # Catches errors coming from MySQL database. Logs and raises an exception.
-            self.bigblue_log.mysql_err(self.err)
+            self.bigblue_log.log_mysql_err(self.err)
 
         finally:
             # Close connections to database.
@@ -298,19 +298,15 @@ class BigBlue():
             # If result returns entry with different timestamp there may have been a mistake in the query generated.
             self.bigblue_log.log_returnerror(database=self.database, table='exp_metadata',
                                              timestamp=self.creation_timestamp, result=self.results[0])
-            if self.logger.isEnabledFor(logging.ERROR):
-                self.logger.error(self.user_log_entry('Returned file timestamp: %s does not equal queried '
-                                                         'timestamp: %s.\nCheck submitted query: %s'
-                                                         % (self.results[0], self.creation_timestamp, self.query)))
-            return False
+            raise BigBlue_errors.Database_Result_Error('[RETURN ERROR] Returned result does note equal searched for '
+                                                       'timestamp. Check logfile: %s for more details.'
+                                                       % self.bigblue_log.log_loc)
 
         else:
-            if bigblue_logger.isEnabledFor(logging.ERROR):
-                # If we get this far things have gone very wrong as returned entry neither matches or does not match
-                # the files creation timestamp.
-                bigblue_logger.error(self.user_log_entry('LOGIC ERROR: check_expMetadataExist has returned result '
-                                                         'that neither matches or does not match the timestamp of %s'
-                                                         % self.stm_fileName))
+            self.bigblue_log.log_logicerror(database=self.database, table='exp_metadata',
+                                            timestamp=self.creation_timestamp, result=self.results[0])
+            raise BigBlue_errors.LogicError('[LOGIC ERROR] Returned result does and does not equal searched for '
+                                            'timestamp. Check logfile: %s for more details.' % self.bigblue_log.log_loc)
 
     def add_exp_metadata(self):
         """ Inserts experiment metadata from stm_file into SQL database """
