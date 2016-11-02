@@ -350,17 +350,9 @@ class BigBlue():
         as stm_file. If there is no such entry it is inserted into the database, however if it is an error is raised"""
 
         # Check to see if an entry with timestamp exists
-        if self.check_expMetadataExist():
-            if bigblue_logger.isEnabledFor(logging.INFO):
-                bigblue_logger.info(self.user_log_entry('exp_metadata in %s already contains entry with timestamp: %s'
-                                                        % (self.database, self.creation_timestamp)))
-        elif not self.check_expMetadataExist():
+        if not self.check_expMetadataExist():
             # If no entry in table exists with the same timestamp, add file into table.
             self.add_exp_metadata()
-            if bigblue_logger.isEnabledFor(logging.INFO):
-                # Log entry into log file.
-                bigblue_logger.info(self.user_log_entry('No existing entry with timestamp: %s found in exp_metadata '
-                                                        'in database: %s.' % (self.creation_timestamp, self.database)))
 
     def delete_exp_metadata(self):
         """
@@ -379,21 +371,18 @@ class BigBlue():
         try:
             self.cursor.execute(self.query)
             self.db.commit()
-            if bigblue_logger.isEnabledFor(logging.WARN):
-                # Log File Deletion general info
-                bigblue_logger.warn(self.user_log_entry('All Files with exp_timestamp: %s DELETED from Database: %s'
-                                                        % (self.creation_timestamp, self.database)))
-            if bigblue_logger.isEnabledFor(logging.DEBUG):
-                # log warning that file has been deleted. Use full query for better tracking.
-                bigblue_logger.debug(self.user_log_entry(self.query))
-        except:
+            self.bigblue_log.log_deletion(database=self.database, table='exp_metadata', filename=self.stm_fileName,
+                                          dependencies=True)
+            # Log full query for debug level logging.
+            self.bigblue_log.log_query(self.query)
+        except MySQLdb.Error as self.err:
             self.db.rollback()
-            if bigblue_logger.isEnabledFor(logging.ERROR):
-                # Log error is connection failed and rollback occurred.
-                bigblue_logger.error(self.user_log_entry('Unable to connect to database: %s' % self.database))
-            raise DatabaseDeleteError('Could not delete entries with exp_timestamp: %s from exp_metadata in %s'
-                                      % (self.creation_timestamp, self.database))
-        self.db.close()
+            # Catches errors coming from MySQL database. Logs and raises an exception.
+            self.bigblue_log.log_mysql_err(self.err)
+        finally:
+            # Close connections to database.
+            self.cursor.close()
+            self.db.close()
 
     """
     ************************************

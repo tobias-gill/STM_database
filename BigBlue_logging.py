@@ -215,3 +215,25 @@ class BigBlue_logging():
 
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug(self.user_log_entry('[QUERY]' + self.query))
+
+    def log_deletion(self, database, table, filename, dependencies):
+        """
+
+        :param database: String containing the name of the database in use.
+        :param table: String containing the name of the table deletion has occured from.
+        :param filename: String containing the filename of entry deleted.
+        :param dependencies: Boolean True/False of whether table has dependencies.
+        :return: None
+        """
+        self.database = database
+        self.table = table
+        self.filename = filename
+        self.dependencies = dependencies
+
+        if self.logger.isEnabledFor(logging.WARN):
+            self.logger.warn(self.user_log_entry('[DELETION] Filename: %s deleted from Database: %s, Table: %s.'
+                                                 % (self.filename, self.database, self.table)))
+        if self.dependencies and self.logger.isEnabledFor(logging.WARN):
+            self.logger.warn(self.user_log_entry('[DEPENDENCIES] Files deleted from Table: %s will propagate. Check '
+                                                 'structure of Database: %s for more info.' % (self.table,
+                                                                                               self.database)))
