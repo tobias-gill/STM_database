@@ -188,3 +188,30 @@ class BigBlue_logging():
             self.logger.error(self.user_log_entry('[LOGIC ERROR] Returned result from Database: %s, Table: %s has '
                                                   'timestamp: %s that does and does not equal searched result: %s.'
                                                   % (self.database, self.table, self.result, self.timestamp)))
+
+    def log_fileadd(self, database, table, filename):
+        """
+
+        :param database: String containing the name of the database in use.
+        :param table: String containing the name of the table entry has been added to.
+        :param filename: String containing filename of new entry.
+        :return: None.
+        """
+        self.database = database
+        self.table = table
+        self.filename file
+
+        if self.logger.isEnabledFor(logging.INFO):
+            self.logger.info(self.user_log_entry('[ENTRY ADDED] Filename: %s entered into Database: %s, Table: %s.'
+                                                 % (self.filename, self.database, self.table)))
+
+    def log_query(self, query):
+        """
+
+        :param query: String containing full SQL query to be logged.
+        :return:
+        """
+        self.query = query
+
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug(self.user_log_entry('[QUERY]' + self.query))

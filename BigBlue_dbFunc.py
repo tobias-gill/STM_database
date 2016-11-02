@@ -245,7 +245,7 @@ class BigBlue():
 
     def check_expMetadataExist(self):
         """ Function to check whether an entry for exp_metadata already exists for a given file.
-        I.E. Many hundreds of flatfiles contain the same experimental metadata and so as not to create excessive
+        i.e. Many hundreds of flatfiles contain the same experimental metadata and so as not to create excessive
         redundant entries we check to see if one already exists. This is achieved by checking for to experiment
         creation timestamp which is a part of each flatfile name."""
 
@@ -262,7 +262,8 @@ class BigBlue():
             self.cursor.execute(self.query)
             # Fetch all the rows in a list of lists.
             self.results = self.cursor.fetchall()
-            # Check to see if log needs to be generated.
+
+            # log file check.
             self.bigblue_log.log_checkfileexist(database=self.database, table='exp_metadata',
                                                 timestamp=self.creation_timestamp, filename=self.stm_fileName)
             # If DEBUG level of logging is enabled logs the full query used.
@@ -328,13 +329,8 @@ class BigBlue():
             self.cursor.execute(self.query)
             # Commit insertion into database
             self.db.commit()
-            if bigblue_logger.isEnabledFor(logging.INFO):
-                # Log that a file has been added to the database.
-                bigblue_logger.info(self.user_log_entry('File: %s added to database: %s by add_exp_metadata()'
-                                                        % (self.stm_fileName, self.database)))
-            if bigblue_logger.isEnabledFor(logging.DEBUG):
-                # If DEBUG level logging is enabled log the entire query.
-                bigblue_logger.debug(self.user_log_entry(self.query))
+            self.bigblue_log.log_fileadd(database=self.database, table='exp_metadata', filename=self.stm_fileName)
+            self.bigblue_log.log_query(query=self.query)
             # Close database connection
             self.db.close()
 
