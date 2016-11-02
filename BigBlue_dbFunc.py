@@ -329,22 +329,21 @@ class BigBlue():
             self.cursor.execute(self.query)
             # Commit insertion into database
             self.db.commit()
+            # Add log for entry commit.
             self.bigblue_log.log_fileadd(database=self.database, table='exp_metadata', filename=self.stm_fileName)
+            # Add log for full query at debug level.
             self.bigblue_log.log_query(query=self.query)
-            # Close database connection
-            self.db.close()
 
-        except:
+        except MySQLdb.Error as self.err:
             # If error in execute rolls back database
             self.db.rollback()
-            if bigblue_logger.isEnabledFor(logging.ERROR):
-                bigblue_logger.error(self.user_log_entry('Unable to add File: %s into Table: exp_metadata within '
-                                                         'Database: %s. Database rolled back.' % (self.stm_fileName,
-                                                                                                  self.database)))
-            # Close connection to database before exit.
+            # Catches errors coming from MySQL database. Logs and raises an exception.
+            self.bigblue_log.log_mysql_err(self.err)
+
+        finally:
+            # Close connections to database.
+            self.cursor.close()
             self.db.close()
-            sys.exit('Unable to add File: %s into Table: exp_metadata within Database: %s. Database rolled back.'
-                     % (self.stm_fileName, self.database))
 
     def safeAdd_exp_metadata(self):
         """ This function uses check_expMetaDataExist to see if an entry already exists with the same timestamp
