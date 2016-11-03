@@ -252,3 +252,21 @@ class BigBlue_logging():
             self.logger.warn(self.user_log_entry('[DEPENDENCIES] Files deleted from Table: %s will propagate. Check '
                                                  'structure of Database: %s for more info.' % (self.table,
                                                                                                self.database)))
+    def log_getentryid(self, database, table, timestamp, filename):
+        """
+
+        :param database: String containing the name of the database in use.
+        :param table: String containing the name of the table being searched.
+        :param timestamp: String containing the timestamp being searched for
+        :param filename: String containing the filename.
+        :return: None
+        """
+        self.database = database
+        self.table = table
+        self.timestamp = timestamp
+        self.filename = filename
+
+        if self.logger.isEnabledFor(logging.INFO):
+            self.logger.info(self.user_log_entry('[ID SEARCH] Searching for ID from Database: %s, Table: %s for '
+                                                 'Filename: %s and Timestamp: %s' % (self.database, self.table,
+                                                                                     self.filename, self.timestamp)))

@@ -50,6 +50,9 @@ class BigBlue():
         # Get the experiment creation timestamp from file
         self.get_expTimeStamp()
 
+        # Formats the file timestamp.
+        self.set_fileTimeStamp()
+
         # Get creation comment from file
         self.get_creationComment()
 
@@ -102,6 +105,20 @@ class BigBlue():
                 self.creation_timestamp = self.creation_timestamp + '0' + str(self.expTimeStamp[i])
             else:
                 self.creation_timestamp = self.creation_timestamp + str(self.expTimeStamp[i])
+
+    def set_fileTimeStamp(self):
+
+        # Create a consistent timestamp string from the file info.
+        self.file_timestamp = time.strptime(self.fileInfos[0]['date'], "%Y-%m-%d %H:%M:%S")
+        self.stm_fileDate = ''  # create an empty string object to hold the file date for inclusion in the database.
+        # If the the month, day, hour, minute, or second values are less than 10, then as a float they will be a single
+        # digit. For consistency in our generated string we want a 0 before numbers with a value less than 10.
+        # i.e. Five should be 05, not 5 in the string.
+        for i in range(0, 6):
+            if self.file_timestamp[i] < 10:
+                self.stm_fileDate = self.stm_fileDate + '0' + str(self.file_timestamp[i])
+            else:
+                self.stm_fileDate = self.stm_fileDate + str(self.file_timestamp[i])
 
     def get_creationComment(self):
         """ Takes the first scan creation comment, drops useless information"""
@@ -472,36 +489,21 @@ class BigBlue():
             self.cursor.execute(self.query)
             # Fetch the exp_metadata_id.
             self.exp_metadata_id = self.cursor.fetchone()[0]
-            if bigblue_logger.isEnabledFor(logging.DEBUG):
-                bigblue_logger.debug(self.user_log_entry(self.query))
+            self.bigblue_log.log_getentryid(database=self.database, table='stm_files', timestamp=self.file_timestamp,
+                                            filename=self.stm_fileName)
+            self.bigblue_log.log_query(query=self.query)
             # Close connection to database.
             self.db.close()
-        except:
-            # If no result found.
-            if bigblue_logger.isEnabledFor(logging.ERROR):
-                bigblue_logger.error(self.user_log_entry('No entry in exp_metadata with timestamp: %s. Unable to link'
-                                                         'file: %s with an exp_metadata_id in database: %s.'
-                                                         %(self.creation_timestamp, self.stm_fileName, self.database)))
+        except MySQLdb.Error as self.err:
+            # Catches errors coming from MySQL database. Logs and raises an exception.
+            self.bigblue_log.log_mysql_err(self.err)
+        finally:
             # Close connection to database.
+            self.cursor.close()
             self.db.close()
-            sys.exit('No entry in exp_metadata with timestamp: %s. Unable to link file: %s with an exp_metadata_id'
-                     'in database: %s. Killed session to preserve database.' % (self.creation_timestamp,
-                                                                                self.stm_fileName, self.database))
 
         # We now have the exp_metadata_id associated with our file.
         # It will now be possible to add our file to stm_files with all fields complete.
-
-        # Create a consistent timestamp string from the file info.
-        self.file_timestamp = time.strptime(self.fileInfos[0]['date'], "%Y-%m-%d %H:%M:%S")
-        self.stm_fileDate = '' # create an empty string object to hold the file date for inclusion in the database.
-        # If the the month, day, hour, minute, or second values are less than 10, then as a float they will be a single
-        # digit. For consistency in our generated string we want a 0 before numbers with a value less than 10.
-        # i.e. Five should be 05, not 5 in the string.
-        for i in range(0, 6):
-            if self.file_timestamp[i] < 10:
-                self.stm_fileDate = self.stm_fileDate + '0' + str(self.file_timestamp[i])
-            else:
-                self.stm_fileDate = self.stm_fileDate + str(self.file_timestamp[i])
 
         # Open database connection
         self.db  = MySQLdb.connect(self.host, self.user, self.password, self.database)
@@ -519,23 +521,17 @@ class BigBlue():
             self.cursor.execute(self.query)
             # Commit insertion into database
             self.db.commit()
-            if bigblue_logger.isEnabledFor(logging.INFO):
-                bigblue_logger.info(self.user_log_entry('File: %s added into Table: stm_files within Database: %s'
-                                                        % (self.stm_fileName, self.database)))
-            if bigblue_logger.isEnabledFor(logging.DEBUG):
-                bigblue_logger.debug(self.user_log_entry(self.query))
-            self.db.close()
-        except:
+            self.bigblue_log.log_fileadd(database=self.database, table='stm_files', filename=self.stm_fileName)
+            self.bigblue_log.log_query(query=self.query)
+        except MySQLdb.Error as self.err:
             # If error in execute rolls back database
             self.db.rollback()
-            if bigblue_logger.isEnabledFor(logging.ERROR):
-                bigblue_logger.error(self.user_log_entry('Unable to add File: %s into Table: stm_files within Database:'
-                                                         ' %s. Database rolled back.' % (self.stm_fileName,
-                                                                                         self.database)))
-            # Close connection to database before exit.
+            # Catches errors coming from MySQL database. Logs and raises an exception.
+            self.bigblue_log.log_mysql_err(self.err)
+        finally:
+            # Close connections to database.
+            self.cursor.close()
             self.db.close()
-            sys.exit('Unable to add File: %s into Table: exp_metadata within Database: %s. Database rolled back.'
-                     % (self.stm_fileName, self.database))
 
     def safeAdd_stm_files(self):
         """ This function uses check_stmFilesExist to see if an entry already exists with the same fileName
