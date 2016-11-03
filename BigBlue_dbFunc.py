@@ -538,15 +538,9 @@ class BigBlue():
         as stm_file. If there is no such entry it is inserted into the database, however if it is an error is raised"""
 
         # Check to see if an entry with fileName exists
-        if self.check_stmFilesExist():
-            pass
-        elif not self.check_stmFilesExist():
+        if not self.check_stmFilesExist():
+            # If no entry in table exists, add file into table.
             self.add_stm_files()
-        elif self.check_stmFilesExist() == 'INCONCLUSIVE':
-            print('Could not determine if file: %s is already in database: %s. File: %s not added. Check log file for '
-                  'more details.' % (self.stm_fileName, self.database))
-            sys.exit('Could not determine if file: %s is already in database: %s. File: %s not added. Check log file '
-                     'for more details.' % (self.stm_fileName, self.database))
 
     def delete_stm_files(self):
         """ Can be used to delete an entry with the same stm_fileName as stm_file from stm_files in database"""
