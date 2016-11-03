@@ -554,23 +554,20 @@ class BigBlue():
         self.query = "DELETE FROM stm_files WHERE file_name = '%s'" % self.stm_fileName
 
         try:
-            # Excecute SQL command
+            # Execute SQL command
             self.cursor.execute(self.query)
             # Commit changes to database
             self.db.commit()
-            if bigblue_logger.isEnabledFor(logging.WARN):
-                # Log File Deletion general info
-                bigblue_logger.warn(self.user_log_entry('File: %s DELETED from stm_files Database: %s'
-                                                        % (self.stm_fileName, self.database)))
-            if bigblue_logger.isEnabledFor(logging.DEBUG):
-                # log warning that file has been deleted. Use full query for better tracking.
-                bigblue_logger.debug(self.user_log_entry(self.query))
-        except:
+            self.bigblue_log.log_deletion(database=self.database, table='stm_files', filename=self.stm_fileName,
+                                          dependencies=True)
+            self.bigblue_log.log_query(query=self.query)
+        except MySQLdb.Error as self.err:
             self.db.rollback()
-            raise DatabaseDeleteError('Entry with file name: %s could not be deleted from stm_files in %s'
-                                      % (self.stm_fileName, self.database))
-        # Close database connection
-        self.db.close()
+            self.bigblue_log.log_mysql_err(err=self.err)
+        finally:
+            # Close database connection
+            self.cursor.close()
+            self.db.close()
 
     """
     ************************************
