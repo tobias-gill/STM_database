@@ -67,7 +67,11 @@ class BigBlue_logging():
         return "[SYS]" + comment
 
     def log_mysql_err(self, err):
+        """
 
+        :param err:
+        :return:
+        """
         self.err = err
         try:
             if self.logger.isEnabledFor(logging.ERROR):
@@ -79,34 +83,45 @@ class BigBlue_logging():
             raise MySQL_Error('MySQL Error. See logfile: %s.' % self.log_loc)
 
     def log_query(self, query):
+        """
 
+        :param query:
+        :return:
+        """
         self.query_str = query
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug(self.user_log_entry(self.query_str))
 
-    def log_duplicate_err(self, database, table, timestamp):
+    def log_duplicate_err(self, database, table, timestamp, filename):
         """
-        Function Type: Logging/Error Handling
-        Function Use: Use when database query finds duplicate entries.
-        Function Outcome: Logs duplicate error to log file and raises and error.
+
+        :param database:
+        :param table:
+        :param timestamp:
+        :param filename:
+        :return:
         """
         self.database = database
         self.table = table
         self.timestamp = timestamp
+        self.filename = filename
         if self.logger.isEnabledFor(logging.ERROR):
                 self.logger.error(self.user_log_entry('Database Error [DUPLICATE]: Within Database: %s, found multiple '
-                                                      'rows in Table: %s, with creation_timestamp: %s'
-                                                      % (self.database, self.table, self.timestamp)))
+                                                      'rows in Table: %s, with Timestamp: %s and Filename: %s'
+                                                      % (self.database, self.table, self.timestamp, self.filename)))
         raise BB_err.DuplicateEntryError('Database Error [DUPLICATE]: Within Database: %s, found multiple rows in '
-                                         'Table: %s, with creation_timestamp: %s' % (self.database, self.table,
-                                                                                     self.timestamp))
+                                         'Table: %s, with timestamp: %s and Filename: %s' % (self.database, self.table,
+                                                                                             self.timestamp,
+                                                                                             self.filename))
 
     def log_checkfileexist(self, database, table, timestamp, filename):
         """
-        :type: Logging
-        :use: Logs that an SQL query has been made that attempts to determine if an entry already exists for the file.
-        :param table: name of MySQL database table to check.
-        :return: None
+
+        :param database:
+        :param table:
+        :param timestamp:
+        :param filename:
+        :return:
         """
         self.database = database
         self.table = table

@@ -295,7 +295,7 @@ class BigBlue():
                                               timestamp=self.creation_timestamp, filename=self.stm_fileName)
             return True
 
-        elif self.results[0] != self.creation_timestamp:
+        elif self.results[0][0] != self.creation_timestamp:
             # If result returns entry with different timestamp there may have been a mistake in the query generated.
             self.bigblue_log.log_returnerror(database=self.database, table='exp_metadata',
                                              timestamp=self.creation_timestamp, result=self.results[0])
@@ -395,9 +395,9 @@ class BigBlue():
         Unlike exp_metadata there should not be multiple files that create this, however it can potentially be
         'referenced' multiple times, depending on the number of scans in a file. i.e fwd, bwd etc. """
 
-        # Open connection to datbase
+        # Open connection to database
         self.db = MySQLdb.connect(self.host, self.user, self.password, self.database)
-        # Prepare cursor obeject with cursor() method.
+        # Prepare cursor object with cursor() method.
         self.cursor = self.db.cursor()
 
         # Prepare SQL command to return all results in database with stm_fileName
@@ -406,59 +406,51 @@ class BigBlue():
         try:
             self.cursor.execute(self.query)  # Try to execute SQL command
             self.results = self.cursor.fetchall()  # Return results of query as a list of lists.
-            if bigblue_logger.isEnabledFor(logging.INFO):
-                # Adds shortened details of query to logfile if logging level is set to INFO
-                bigblue_logger.info(self.user_log_entry('check_stmFilesExist on file: %s'
-                                                        % self.stm_fileName))
-            if bigblue_logger.isEnabledFor(logging.DEBUG):
-                # Adds the full query used to log file if logging level is set to DEBUG
-                bigblue_logger.debug(self.user_log_entry(self.query))
+            # Log checking for stm_file entry.
+            self.bigblue_log.log_checkfileexist(database=self.database, table='stm_files',
+                                                timestamp=self.file_timestamp, filename=self.stm_fileName)
+            # If debug level logging, logs full query.
+            self.bigblue_log.log_query(query=self.query)
 
-        except:
-            # If no connection can be made, log an error and raise and exception.
-            if bigblue_logger.isEnabledFor(logging.ERROR):
-                bigblue_logger.error(self.user_log_entry('Unable to connect to database: %s' % self.database))
-            raise DatabaseConnectionError('Unable to connect to database: %s' % self.database)
-        self.db.close()
+        except MySQLdb.Error as self.err:
+            # Catches errors coming from MySQL database. Logs and raises an exception.
+            self.bigblue_log.log_mysql_err(self.err)
+
+        finally:
+            # Close connections to database.
+            self.cursor.close()
+            self.db.close()
 
         # Test to see if there is a unique result
         if len(self.results) > 1:
-            if bigblue_logger.isEnabledFor(logging.WARN):
-                bigblue_logger.warn(self.user_log_entry('[DUPLICATE] Found duplicate entry of file: %s in Database: %s,'
-                                                        ' Table: stm_files.' % (self.database, self.stm_fileName)))
-            if bigblue_logger.isEnabledFor(logging.DEBUG):
-                bigblue_logger.debug(self.user_log_entry(self.query))
-            raise DuplicateEntryError('Found a duplicate entry of %s in stm_files within %s'
-                                      % (self.stm_fileName, self.database))
+            self.bigblue_log.log_query(query=self.query)
+            self.bigblue_log.log_duplicate_err(database=self.database, table='stm_files', timestamp=self.file_timestamp,
+                                               filename=self.stm_fileName)
+
         # If a unique results is found, check that it does in fact equal stm_fileName
         elif len(self.results) == 1:
             if self.results[0][0] == self.stm_fileName:
-                if bigblue_logger.isEnabledFor(logging.INFO):
-                    bigblue_logger.info(self.user_log_entry('File: %s already exists in database: %s table: stm_files'
-                                                            % (self.stm_fileName, self.database)))
+                self.bigblue_log.log_existingfile(database=self.database, table='stm_files',
+                                                  timestamp=self.file_timestamp, filename=self.stm_fileName)
                 # entry returned from database is definitely equal to stm_fileName
                 return True
             elif self.results[0][0] != self.stm_fileName:
                 # Entry returned from SQL command does not equal stm_fileName. This implies an error in the query.
-                if bigblue_logger.isEnabledFor(logging.ERROR):
-                    bigblue_logger.error(self.user_log_entry('Searched database: %s for file: %s. Search returned file:'
-                                                             ' %s. May be an error in SQL query generated by check_'
-                                                             'stmFilesExists.' % (self.database, self.stm_fileName,
-                                                                                  self.results[0][0])))
-                if bigblue_logger.isEnabledFor(logging.DEBUG):
-                    bigblue_logger.debug(self.user_log_entry(self.query))
-                return 'INCONCLUSIVE'
+                self.bigblue_log.log_returnerror(database=self.database, table='stm_files',
+                                                 timestamp=self.file_timestamp, result=self.results[0][0])
+                self.bigblue_log.log_query(query=self.query)
+                raise BigBlue_errors.Database_Result_Error('[RETURN ERROR] Returned result does not equal searched for '
+                                                           'timestamp. Check logfile: %s for more details.'
+                                                           % self.bigblue_log.log_loc)
         else:
             # If len(self.results) is neither == 1 or > 1 then return false.
             # If this is the case, it may imply that there is an error in the SQL query. We will log this and return
             # 'INCONCLUSIVE'.
-            if bigblue_logger.isEnabledFor(logging.WARN):
-                bigblue_logger.warn(self.user_log_entry('Searched database: %s for file: %s. The result is has 0 '
-                                                        'length. There may be an error in the SQL query.'
-                                                        % (self.database, self.stm_fileName)))
-            if bigblue_logger.isEnabledFor(logging.DEBUG):
-                bigblue_logger.debug(self.user_log_entry(self.query))
-            return 'INCONCLUSIVE'
+            self.bigblue_log.log_logicerror(database=self.database, table='stm_files', timestamp=self.file_timestamp,
+                                            result=self.results[0][0])
+            self.bigblue_log.log_query(query=self.query)
+            raise BigBlue_errors.LogicError('[LOGIC ERROR] Returned result does and does not equal searched for '
+                                            'timestamp. Check logfile: %s for more details.' % self.bigblue_log.log_loc)
 
     def add_stm_files(self):
         """ Inserts stm_files entry from stm_file into SQL database """
