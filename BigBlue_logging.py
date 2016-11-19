@@ -75,12 +75,12 @@ class BigBlue_logging():
         self.err = err
         try:
             if self.logger.isEnabledFor(logging.ERROR):
-                self.logger.error('MySQL Error [%d]: %s' % (self.err.args[0], self.err.args[1]))
+                self.logger.error('MySQL Error [%d]: %s'.format(self.err.args[0], self.err.args[1]))
         except IndexError:
             if self.logger.isEnabledFor(logging.ERROR):
-                self.logger.error('MySQL Error: %s' % str(self.err))
+                self.logger.error('MySQL Error: %s'.format(str(self.err)))
         finally:
-            raise MySQL_Error('MySQL Error. See logfile: %s.' % self.log_loc)
+            raise MySQL_Error('MySQL Error. See logfile: %s.'.format(self.log_loc))
 
     def log_query(self, query):
         """
@@ -107,12 +107,13 @@ class BigBlue_logging():
         self.filename = filename
         if self.logger.isEnabledFor(logging.ERROR):
                 self.logger.error(self.user_log_entry('Database Error [DUPLICATE]: Within Database: %s, found multiple '
-                                                      'rows in Table: %s, with Timestamp: %s and Filename: %s'
-                                                      % (self.database, self.table, self.timestamp, self.filename)))
+                                                      'rows in Table: %s, with Timestamp: %s and Filename: %s'.format(
+                    self.database, self.table, self.timestamp, self.filename)))
         raise BB_err.DuplicateEntryError('Database Error [DUPLICATE]: Within Database: %s, found multiple rows in '
-                                         'Table: %s, with timestamp: %s and Filename: %s' % (self.database, self.table,
-                                                                                             self.timestamp,
-                                                                                             self.filename))
+                                         'Table: %s, with timestamp: %s and Filename: %s'.format(self.database,
+                                                                                                 self.table,
+                                                                                                 self.timestamp,
+                                                                                                 self.filename))
 
     def log_checkfileexist(self, database, table, timestamp, filename):
         """
@@ -129,8 +130,8 @@ class BigBlue_logging():
         self.filename = filename
         if self.logger.isEnabledFor(logging.INFO):
             self.logger.info(self.user_log_entry('Checking Database: %s, Table: %s, for File: %s, with '
-                                                 'creation_timestamp: %s' % (self.database, self.table, self.filename,
-                                                                             self.timestamp)))
+                                                 'creation_timestamp: %s'.format(self.database, self.table,
+                                                                                 self.filename, self.timestamp)))
 
     def log_noexistingfile(self, database, table, timestamp, filename):
         """
@@ -145,8 +146,8 @@ class BigBlue_logging():
         self.filename = filename
         if self.logger.isEnabledFor(logging.INFO):
                 self.logger.info(self.user_log_entry('No File: %s  with creation_timestamp: %s found in Database: %s, '
-                                                     'Table: %s.' % (self.filename, self.creation_timestamp,
-                                                                     self.database, self.table)))
+                                                     'Table: %s.'.format(self.filename, self.creation_timestamp,
+                                                                         self.database, self.table)))
     def log_existingfile(self, database, table, timestamp, filename):
         """
 
@@ -163,8 +164,8 @@ class BigBlue_logging():
 
         if self.logger.isEnabledFor(logging.INFO):
             self.logger.info(self.user_log_entry('Existing entry found for File: %s with creation_timestamp: %s in '
-                                                 'Database: %s, Table: %s.' % (self.filename, self.timestamp,
-                                                                               self.database, self.table)))
+                                                 'Database: %s, Table: %s.'.format(self.filename, self.timestamp,
+                                                                                   self.database, self.table)))
 
     def log_returnerror(self, database, table, timestamp, result):
         """
@@ -182,8 +183,8 @@ class BigBlue_logging():
 
         if self.logger.isEnabledFor(logging.ERROR):
             self.logger.error(self.user_log_entry('[RETURN ERROR] Returned result from Database: %s, Table: %s has '
-                                                  'timestamp: %s that does not equal the searched timestamp: %s.'
-                                                  % (self.result, self.timestamp)))
+                                                  'timestamp: %s that does not equal the searched timestamp: '
+                                                  '%s.'.format(self.result, self.timestamp)))
 
     def log_logicerror(self, database, table, timestamp, result):
         """
@@ -201,8 +202,8 @@ class BigBlue_logging():
 
         if self.logger.isEnabledFor(logging.ERROR):
             self.logger.error(self.user_log_entry('[LOGIC ERROR] Returned result from Database: %s, Table: %s has '
-                                                  'timestamp: %s that does and does not equal searched result: %s.'
-                                                  % (self.database, self.table, self.result, self.timestamp)))
+                                                  'timestamp: %s that does and does not equal searched result: '
+                                                  '%s.'.format(self.database, self.table, self.result, self.timestamp)))
 
     def log_fileadd(self, database, table, filename):
         """
@@ -214,11 +215,11 @@ class BigBlue_logging():
         """
         self.database = database
         self.table = table
-        self.filename file
+        self.filename = filename
 
         if self.logger.isEnabledFor(logging.INFO):
-            self.logger.info(self.user_log_entry('[ENTRY ADDED] Filename: %s entered into Database: %s, Table: %s.'
-                                                 % (self.filename, self.database, self.table)))
+            self.logger.info(self.user_log_entry('[ENTRY ADDED] Filename: %s entered into Database: %s, Table: '
+                                                 '%s.'.format(self.filename, self.database, self.table)))
 
     def log_query(self, query):
         """
@@ -246,12 +247,12 @@ class BigBlue_logging():
         self.dependencies = dependencies
 
         if self.logger.isEnabledFor(logging.WARN):
-            self.logger.warn(self.user_log_entry('[DELETION] Filename: %s deleted from Database: %s, Table: %s.'
-                                                 % (self.filename, self.database, self.table)))
+            self.logger.warn(self.user_log_entry('[DELETION] Filename: %s deleted from Database: %s, Table: '
+                                                 '%s.'.format(self.filename, self.database, self.table)))
         if self.dependencies and self.logger.isEnabledFor(logging.WARN):
             self.logger.warn(self.user_log_entry('[DEPENDENCIES] Files deleted from Table: %s will propagate. Check '
-                                                 'structure of Database: %s for more info.' % (self.table,
-                                                                                               self.database)))
+                                                 'structure of Database: %s for more info.'.format(self.table,
+                                                                                                   self.database)))
     def log_getentryid(self, database, table, timestamp, filename):
         """
 
@@ -268,5 +269,6 @@ class BigBlue_logging():
 
         if self.logger.isEnabledFor(logging.INFO):
             self.logger.info(self.user_log_entry('[ID SEARCH] Searching for ID from Database: %s, Table: %s for '
-                                                 'Filename: %s and Timestamp: %s' % (self.database, self.table,
-                                                                                     self.filename, self.timestamp)))
+                                                 'Filename: %s and Timestamp: %s'.format(self.database, self.table,
+                                                                                         self.filename,
+                                                                                         self.timestamp)))
