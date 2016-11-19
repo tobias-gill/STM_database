@@ -596,32 +596,34 @@ class BigBlue():
             self.cursor.execute(self.query)
             # Fetch all the rows in a list of lists.
             self.results = self.cursor.fetchall()
-            if bigblue_logger.isEnabledFor(logging.INFO):
-                bigblue_logger.info(self.user_log_entry('Searching for File: %s, file_id in Table: stm_files of '
-                                                        'Database: %s.' % (self.stm_fileName, self.database)))
-            if bigblue_logger.isEnabledFor(logging.DEBUG):
-                bigblue_logger.debug(self.user_log_entry(self.query))
+            # Log searching for file_id from stm_files.
+            self.bigblue_log.log_getentryid(database=self.database, table='stm_files', timestamp=self.file_timestamp,
+                                            filename=self.stm_fileName)
+            # If DEBUG level logging. Logs full query
+            self.bigblue_log.log_query(query=self.query)
+        except MySQLdb.Error as self.err:
+            # Catches errors coming from MySQL database. Logs and raises an exception.
+            self.bigblue_log.log_mysql_err(self.err)
+        finally:
+            self.cursor.close()
             self.db.close()
-        except:
-            # If fail close connection and end here.
-            if bigblue_logger.isEnabledFor(logging.ERROR):
-                bigblue_logger.error(self.user_log_entry('Could not connect to Database: %s' % self.database))
-            self.db.close()
-
 
         if len(self.results) > 1:
-            raise DuplicateEntryError, 'Duplicate entry found in stm_files within %s with file name: %s' % \
-                                       (self.database, self.stm_fileName)
+            # If DEBUG logging. Log full query. This is done prior to the error log as that will raise an exception
+            self.bigblue_log.log_query(query=self.query)
+            self.bigblue_log.log_duplicate_err(database=self.database, table='stm_topo_metadata',
+                                               timestamp=self.file_timestamp, filename=self.stm_fileName)
         elif len(self.results) == 1:
             if self.results[0] == None:
-                raise UnableToFindEntryError, 'Was unable to find %s in stm_files within %d' % \
-                                              (self.stm_fileName, self.database)
+                self.bigblue_log.log_returnerror(database=self.database, table='stm_files',
+                                                 timestamp=self.file_timestamp, result=self.results[0])
+                raise BigBlue_errors.Database_Result_Error('[Database Return Error] Returned result is None.')
             else:
+                # Set the stm_file_id to returned result.
                 self.stm_file_id = self.results[0][0]
 
         else:
-            raise UnableToFindEntryError, 'Unable to find an entry in stm_files within %s with filename: %s' % \
-                                          (self.database, self.stm_fileName)
+            raise BigBlue_errors.Database_Result_Error('[Database Return Error] No result returned.')
 
         # Connect to database
         self.db = MySQLdb.connect(self.host, self.user, self.password, self.database)
@@ -635,20 +637,27 @@ class BigBlue():
             # Execute SQL command
             self.cursor.execute(self.query)
             self.results = self.cursor.fetchall()
-
-        except:
-            # If no results returned
+        except MySQLdb.Error as self.err:
+            # Catches errors coming from MySQL database. Logs and raises an exception.
+            self.bigblue_log.log_mysql_err(self.err)
+        finally:
+            self.cursor.close()
             self.db.close()
-            raise DatabaseConnectionError, 'could not connect here'
 
         if len(self.results) > 1:
-            raise DuplicateEntryError, 'Duplicate entry found in stm_topo_metadata within %s with file_id %s' % \
-                                           (self.database, self.stm_file_id)
+            # If DEBUG logging. Log full query. This is done prior to the error log as that will raise an exception
+            self.bigblue_log.log_query(query=self.query)
+            self.bigblue_log.log_duplicate_err(database=self.database, table='stm_topo_metadata',
+                                               timestamp=self.file_timestamp, filename=self.stm_fileName)
+            # TODO: This error will print and log useless information as the search parameters in this query are not
+            #       timestamps.
         elif len(self.results) == 1:
+            # If a single result is returned then an entry already exists for this file.
             self.stm_topo_metadata_id = self.results[0][0]
-            self.db.close()
             return True
         else:
+            # TODO: Need to check what is returned by the query if no result exists. If it is a list with length one
+            #       then an incorrect True result will be returned.
             return False
 
     def add_stm_topo_metadata(self):
